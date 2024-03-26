@@ -1,1 +1,5 @@
 movies/
+__pycache__
+.idea
+.ipynb_checkpoints
+catboost_info/
