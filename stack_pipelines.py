@@ -1,7 +1,12 @@
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from sklearn.pipeline import FeatureUnion, _fit_transform_one, _transform_one, _name_estimators
+from sklearn.pipeline import (
+    FeatureUnion,
+    _fit_transform_one,
+    _transform_one,
+    _name_estimators,
+)
 from scipy import sparse
 
 
@@ -10,12 +15,10 @@ class PandasFeatureUnion(FeatureUnion):
         self._validate_transformers()
         result = Parallel(n_jobs=self.n_jobs)(
             delayed(_fit_transform_one)(
-                transformer=trans,
-                X=X,
-                y=y,
-                weight=weight,
-                **fit_params)
-            for name, trans, weight in self._iter())
+                transformer=trans, X=X, y=y, weight=weight, **fit_params
+            )
+            for name, trans, weight in self._iter()
+        )
 
         if not result:
             # All transformers are None
@@ -33,12 +36,9 @@ class PandasFeatureUnion(FeatureUnion):
 
     def transform(self, X):
         Xs = Parallel(n_jobs=self.n_jobs)(
-            delayed(_transform_one)(
-                transformer=trans,
-                X=X,
-                y=None,
-                weight=weight)
-            for name, trans, weight in self._iter())
+            delayed(_transform_one)(transformer=trans, X=X, y=None, weight=weight)
+            for name, trans, weight in self._iter()
+        )
         if not Xs:
             # All transformers are None
             return np.zeros((X.shape[0], 0))
@@ -50,12 +50,14 @@ class PandasFeatureUnion(FeatureUnion):
 
 
 def make_union(*transformers, **kwargs):
-    n_jobs = kwargs.pop('n_jobs', None)
-    verbose = kwargs.pop('verbose', False)
+    n_jobs = kwargs.pop("n_jobs", None)
+    verbose = kwargs.pop("verbose", False)
     if kwargs:
         # We do not currently support `transformer_weights` as we may want to
         # change its type spec in make_union
-        raise TypeError('Unknown keyword arguments: "{}"'
-                        .format(list(kwargs.keys())[0]))
+        raise TypeError(
+            'Unknown keyword arguments: "{}"'.format(list(kwargs.keys())[0])
+        )
     return PandasFeatureUnion(
-        _name_estimators(transformers), n_jobs=n_jobs, verbose=verbose)
+        _name_estimators(transformers), n_jobs=n_jobs, verbose=verbose
+    )

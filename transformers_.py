@@ -13,6 +13,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from num2words import num2words
 from sklearn.impute import SimpleImputer
 
+
 class FeatureSelector(BaseEstimator, TransformerMixin):
     def __init__(self, feature_names):
         self.feature_names = feature_names
@@ -24,35 +25,44 @@ class FeatureSelector(BaseEstimator, TransformerMixin):
         return X[self.feature_names]
 
 
-# 1. Extract values from dictionaries within records
-# 2. Join them in one string
-# 3. Vectorize it / dummify it - CountVectorizer
 class DictionaryVectorizer(BaseEstimator, TransformerMixin):
+    """
+    1. Extract values from dictionaries within records
+    2. Join them in one string
+    3. Vectorize it / dummify it - CountVectorizer
+    """
+
     def __init__(self, key, all_=True):  # all_ ?
         self.key = key
         self.all = all_
 
     def fit(self, X, y=None):
-        genres = X.apply(lambda x: self.extract_items(x, self.key, self.all))  # names of values that correspond to key in dict
-        self.vectorizer = CountVectorizer().fit(genres)  # bag of words
+        genres = X.apply(
+            lambda x: self.extract_items(x, self.key, self.all)
+        )  # names of values that correspond to key in dict
+        self.vectorizer = CountVectorizer().fit(genres)  # BOW
         self.columns = self.vectorizer.get_feature_names_out()
         return self
 
     def transform(self, X):
         genres = X.apply(lambda x: self.extract_items(x, self.key))  # why not all
         data = self.vectorizer.transform(genres)
-        return pd.DataFrame(data.toarray(), columns=self.vectorizer.get_feature_names_out(), index=X.index)
+        return pd.DataFrame(
+            data.toarray(),
+            columns=self.vectorizer.get_feature_names_out(),
+            index=X.index,
+        )
 
     @staticmethod
     def extract_items(list_, key, all_=True):
-        sub = lambda x: re.sub(r'[^A-Za-z0-9]', '_', x)
+        sub = lambda x: re.sub(r"[^A-Za-z0-9]", "_", x)
         if all_:
             target = []
             for dict_ in eval(list_):
                 target.append(sub(dict_[key].strip()))
-            return ' '.join(target)
+            return " ".join(target)
         elif not eval(list_):  # ?
-            return 'no_data'
+            return "no_data"
         else:
             return sub(eval(list_)[0][key].strip())
 
@@ -110,28 +120,28 @@ class Binarizer(BaseEstimator, TransformerMixin):
 
 # Date utils
 def get_year(date):
-    return datetime.strptime(date, '%Y-%m-%d').year
+    return datetime.strptime(date, "%Y-%m-%d").year
 
 
 def get_month_name(date):
-    return datetime.strptime(date, '%Y-%m-%d').strftime('%b')
+    return datetime.strptime(date, "%Y-%m-%d").strftime("%b")
 
 
 def get_weekday_name(date):
-    return datetime.strptime(date, '%Y-%m-%d').strftime('%a')
+    return datetime.strptime(date, "%Y-%m-%d").strftime("%a")
 
 
 def get_month(date):
-    return datetime.strptime(date, '%Y-%m-%d').month
+    return datetime.strptime(date, "%Y-%m-%d").month
 
 
 def get_weekday(date):
-    return datetime.strptime(date, '%Y-%m-%d').day
+    return datetime.strptime(date, "%Y-%m-%d").day
 
 
 # Date extraction and encoding
 class DateTransformer(BaseEstimator, TransformerMixin):
-    def __init__(self, encoding='both'):
+    def __init__(self, encoding="both"):
         self.encoding = encoding
 
     def fit(self, X, y=None):
@@ -146,20 +156,22 @@ class DateTransformer(BaseEstimator, TransformerMixin):
     @staticmethod
     def sin_cos_encoding(X):
         encoded = pd.DataFrame()
-        encoded['month_sin'] = X.apply(lambda x: np.sin(2 * np.pi * get_month(x) / 12))
-        encoded['month_cos'] = X.apply(lambda x: np.cos(2 * np.pi * get_month(x) / 12))
-        encoded['day_sin'] = X.apply(lambda x: np.sin(2 * np.pi * get_weekday(x) / 7))
-        encoded['day_cos'] = X.apply(lambda x: np.cos(2 * np.pi * get_weekday(x) / 7))
+        encoded["month_sin"] = X.apply(lambda x: np.sin(2 * np.pi * get_month(x) / 12))
+        encoded["month_cos"] = X.apply(lambda x: np.cos(2 * np.pi * get_month(x) / 12))
+        encoded["day_sin"] = X.apply(lambda x: np.sin(2 * np.pi * get_weekday(x) / 7))
+        encoded["day_cos"] = X.apply(lambda x: np.cos(2 * np.pi * get_weekday(x) / 7))
         return encoded
 
     def transform(self, X):
-        year = X.apply(get_year).rename('year')  # series
-        if self.encoding == 'one_hot':
+        year = X.apply(get_year).rename("year")  # series
+        if self.encoding == "one_hot":
             encoded = self.one_hot_encoding(X)
         elif self.encoding == "sin_cos":
             encoded = self.sin_cos_encoding(X)
         else:  # both
-            encoded = pd.concat([self.one_hot_encoding(X), self.sin_cos_encoding(X)], axis=1)
+            encoded = pd.concat(
+                [self.one_hot_encoding(X), self.sin_cos_encoding(X)], axis=1
+            )
         return pd.concat([year, encoded], axis=1)
 
 
@@ -208,7 +220,7 @@ class AgeExtractor(BaseEstimator, TransformerMixin):
 
 class HeightWeightHandler(BaseEstimator, TransformerMixin):
     def __init__(self, column_name):
-        self.possible_splits = [',', '_', '-', ';']
+        self.possible_splits = [",", "_", "-", ";"]
         self.word_to_num = {num2words(i): i for i in range(300)}
         self.column_name = column_name
 
@@ -233,19 +245,37 @@ class HeightWeightHandler(BaseEstimator, TransformerMixin):
             height, weight = splitter(x)
             weight = convert_to_int(weight)
             height = float(height)
-            return pd.Series({'height': height, 'weight': weight})
+            return pd.Series({"height": height, "weight": weight})
 
         return X[self.column_name].apply(handler)
 
 
-# class Imputer(BaseEstimator, TransformerMixin):
-#     def __init__(self, column_name, strategy):
-#         self.column_name = column_name
-#         self.strategy = strategy
-#         self.imputer = SimpleImputer(strategy=strategy)
-#
-#     def fit(self, X, y=None):
-#         return self
-#
-#     def transform(self, X):
-#         return self.imputer.fit_transform(X[self.column_name])
+# Probalby not needed
+class Imputer(BaseEstimator, TransformerMixin):
+    def __init__(self, columns, strategy):
+        self.columns = columns
+        self.imputer = SimpleImputer(strategy=strategy)
+
+    def fit(self, X, y=None):
+        self.imputer.fit(X[self.columns])
+        return self
+
+    def transform(self, X):
+        X_ = X.copy()
+        X_[self.columns] = self.imputer.transform(X[self.columns])
+        return X_
+
+
+class Scaler(BaseEstimator, TransformerMixin):
+    def __init__(self, columns, scaler):
+        self.columns = columns
+        self.scaler = scaler
+
+    def fit(self, X, y=None):
+        self.scaler.fit(X[self.columns])
+        return self
+
+    def transform(self, X):
+        X_ = X.copy()
+        X_[self.columns] = self.scaler.transform(X[self.columns])
+        return X_
