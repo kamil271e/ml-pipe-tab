@@ -1,10 +1,5 @@
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import make_pipeline, make_union
-import seaborn as sns
-import matplotlib.pyplot as plt
-import random
 import re
 
 from datetime import datetime
